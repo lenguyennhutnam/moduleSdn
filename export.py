@@ -33,32 +33,37 @@ class Controller:
 
 class Topo:
     def __init__(self):
-        self.controllers = []
-        self.hosts = []
-        self.switches = []
-        self.links = []
+        self.controllers = {}
+        self.hosts = {}
+        self.switches = {}
+        self.links = {}
 
     # create new node to topology
     def addController(self, name, controller=None):
         newController = Controller(name, controller)
-        self.controllers.append(newController)
+        self.controllers[newController.name] = newController
         return newController
 
     def addHost(self, name, ip, dimage='ubuntu:trusty'):
         newHost = Host(name, ip, dimage)
-        self.hosts.append(newHost)
+        self.hosts[newHost.name]= newHost
         return newHost
 
     def addSwitch(self, name, cls=None):
         newSwitch = Switch(name, cls)
-        self.switches.append(newSwitch)
+        self.switches[newSwitch.name]= newSwitch
         return newSwitch
 
     def addLink(self, node1, node2, port1=None, port2=None, cls=None):
         newLink = Link(node1, node2, port1, port2, cls)
-        self.links.append(newLink)
+        self.links[f"{node1}-{node2}"]= newLink
         return newLink
 
+    def addControlLink(self, controller, switch):
+        self.controllers[controller].switches.append(switch)
+        return f"{controller}-{switch}"
+
+        
     # create python script for each node
     def addCtrlerScript(self, c):
         script = f"{c.name} = net.addController('{c.name}'"\
@@ -83,10 +88,10 @@ class Topo:
         return script
 
 
-def exportTopo(topo):
+def exportTopo(topo=Topo()):
     importMininet = (
         "from mininet.net import Containernet\n"
-        "from mininet.node import Controller\n"
+        "from mininet.node import Controller, Ryu\n"
         "from mininet.cli import CLI\n"
         "from mininet.link import TCLink\n"
         "from mininet.log import info, setLogLevel\n"
@@ -97,23 +102,23 @@ def exportTopo(topo):
         f.write(importMininet)
         f.write("net = Containernet(controller=Controller)\n")
         f.write("\ninfo('*** Adding controller\\n')\n")
-        for controller in topo.controllers:
+        for controller in topo.controllers.values():
             f.write(topo.addCtrlerScript(controller))
         # f.write("net.addController('c0')\n")
 
         # add hosts
         f.write("\ninfo('*** Adding host\\n')\n")
-        for host in topo.hosts:
+        for host in topo.hosts.values():
             f.write(topo.addHostScript(host))
 
         # add switches
         f.write("\ninfo('*** Adding switches\\n')\n")
-        for switch in topo.switches:
+        for switch in topo.switches.values():
             f.write(topo.addSwitchScript(switch))
 
         # add links
         f.write("\ninfo('*** Creating links\\n')\n")
-        for link in topo.links:
+        for link in topo.links.values():
             f.write(topo.addLinkScript(link))
         # f.write("info('*** Testing connectivity\\n')\n")
 
@@ -124,10 +129,17 @@ def exportTopo(topo):
         # start controllers
         f.write("\ninfo('*** Starting controllers\\n')\n")
         f.write("for controller in net.controllers:\n"
-                "   controller.start()\n")
+                "    controller.start()\n")
 
         # start switches
         f.write("\ninfo('*** Starting switches\\n')\n")
+        for switch in topo.switches:
+            controller = []
+            for c in topo.controllers.values():
+                if switch in c.switches:
+                    controller.append(c.name)
+            f.write(f"\nnet.get('{switch}').start([{', '.join(controller)}])\n")
+
 
         f.write("\ninfo('*** Running CLI\\n')\n")
         f.write("CLI(net)\n")
@@ -137,9 +149,9 @@ def exportTopo(topo):
 
 if __name__ == '__main__':
     topo = Topo()
-    topo.addController('c0')
+    topo.addController('c0', controller='Ryu')
     topo.addController('c1')
-    
+
     topo.addHost('h1', '192.168.1.1')
     topo.addHost('h2', '192.168.1.2')
     topo.addHost('h3', '192.168.1.3')
@@ -147,6 +159,9 @@ if __name__ == '__main__':
 
     topo.addSwitch('s1')
     topo.addSwitch('s2')
+
+    topo.addControlLink('c0', 's1')
+    topo.addControlLink('c1', 's2')
 
     topo.addLink('s1', 'h1', '3', '0')
     topo.addLink('s1', 'h2', '2', '0')

@@ -1,5 +1,5 @@
 from mininet.net import Containernet
-from mininet.node import Controller
+from mininet.node import Controller, Ryu
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import info, setLogLevel
@@ -8,7 +8,7 @@ setLogLevel('info')
 net = Containernet(controller=Controller)
 
 info('*** Adding controller\n')
-c0 = net.addController('c0')
+c0 = net.addController('c0', controller=Ryu)
 c1 = net.addController('c1')
 
 info('*** Adding host\n')
@@ -33,9 +33,13 @@ net.build()
 
 info('*** Starting controllers\n')
 for controller in net.controllers:
-   controller.start()
+    controller.start()
 
 info('*** Starting switches\n')
+
+net.get('s1').start([c0])
+
+net.get('s2').start([c1])
 
 info('*** Running CLI\n')
 CLI(net)
