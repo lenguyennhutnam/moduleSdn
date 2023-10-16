@@ -88,15 +88,14 @@ class Topo:
         return script
 
 
-def exportTopo(topo=Topo()):
+def exportTopo(dir=__file__, topo=Topo()):
     importMininet = (
         "from mininet.net import Containernet\n"
-        "from mininet.node import Controller, Ryu\n"
         "from mininet.cli import CLI\n"
         "from mininet.link import TCLink\n"
         "from mininet.log import info, setLogLevel\n"
         "setLogLevel('info')\n\n")
-    dirpath = os.path.dirname(__file__)
+    dirpath = os.path.dirname(dir)
     # default export filename is topo.py
     with open(os.path.join(dirpath, "topo.py"), "w") as f:
         f.write(importMininet)
